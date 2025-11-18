@@ -1,0 +1,2 @@
+# fpp
+firefox privacy profile
