@@ -1,12 +1,17 @@
 #!/usr/bin/env sh
 
 #######################
-# Project: fpp
+# Project: fpp v1.1
 # Author:  ConzZah
-# LM:      2025.11.18 
+# LM:      2025.11.21
 #######################
 
-firefox=""; path2profile="$(pwd)/fpp"
+path2profile="$(pwd)/fpp"; firefox=""
+url="about:newtab" ### <-- default url
+### if "$1" seems to be an url,
+### treat it as one & overwrite default
+echo "$1"| grep -q 'http.*' && url="$1"
+
 ### check if firefox is even installed & exit if it shouldn't be
 command -v firefox >/dev/null && firefox="$(command -v firefox)"
 [ -z "$firefox" ] && echo "--> ERROR: FIREFOX COULD NOT BE FOUND" && exit 1
@@ -20,7 +25,7 @@ curl -#LO 'https://github.com/ConzZah/fpp/raw/refs/heads/main/fpp.7z'
 }
 
 ### check again, so we don't try to load something that's not there
-[ ! -d "$path2profile" ] && echo "--> ERROR: COULDN'T FIND PATH TO PROFILE"
+[ ! -d "$path2profile" ] && { echo "--> ERROR: COULDN'T FIND PATH TO PROFILE"; exit 1 ;}
 
 ### delete addonStartup.json.lz4, to make addon/extension paths fix themselves
 rm -f "$path2profile/addonStartup.json.lz4" >/dev/null
@@ -28,15 +33,14 @@ rm -f "$path2profile/addonStartup.json.lz4" >/dev/null
 ### if $1 is '-fr', create firstrun flag
 [ "$1" = '-fr' ] && touch "$path2profile/.fr"
 
-### if .fr (firstrun flag) does exist, prepare & perform first run 
+### if .fr (firstrun flag) does exist, perform first run
 [ -f ".fr"  ] || [ -f "$path2profile/.fr" ] && {
-echo '--> PREPARING FIRST RUN, PLS WAIT..'
+echo '--> PERFORMING FIRST RUN, PLS WAIT..'
 rm -f "$path2profile/.fr" ".fr" >/dev/null
 rm -f "$path2profile/sessionstore.jsonlz4" >/dev/null
 rm -rf "$path2profile/sessionstore-backups" >/dev/null
 }
 
-### if .fr doesn't exist, launch normally 
-[ ! -f ".fr"  ] || [ ! -f "$path2profile/.fr" ] && \
 echo "--> LAUNCHING FIREFOX WITH PROFILE @ $path2profile"
-$firefox --allow-downgrade --profile "$path2profile" >/dev/null 2>&1 &
+[ "$url" != "about:newtab" ] && echo "--> VISITING: $url"
+$firefox "$url" --allow-downgrade --profile "$path2profile" >/dev/null 2>&1 &
