@@ -1,11 +1,12 @@
 #!/usr/bin/env sh
 
-#######################
-# Project: fpp v1.2
+#===============================================
+# Project: fpp v1.3
 # Author:  ConzZah
-# LM:      2025.11.25
-#######################
+# Last Modification: 1/30/26 9:19 AM
+#===============================================
 
+echo; echo "== FPP v1.3 =="; echo
 path2profile="$(pwd)/fpp"; firefox=""
 url="about:newtab" ### <-- default url
 ### if "$1" seems to be an url,
@@ -13,7 +14,9 @@ url="about:newtab" ### <-- default url
 echo "$1"| grep -q 'http.*' && url="$1"
 
 ### check if firefox is even installed & exit if it shouldn't be
-command -v firefox >/dev/null && firefox="$(command -v firefox)"
+command -v firefox-esr >/dev/null && firefox="firefox-esr"
+[ -z "$firefox" ] && command -v firefox >/dev/null && firefox="firefox"
+[ -z "$firefox" ] && command -v librewolf >/dev/null && firefox="librewolf"
 [ -z "$firefox" ] && echo "--> ERROR: FIREFOX COULD NOT BE FOUND" && exit 1
 
 ### if $path2profile couldn't be found, and is equal to the default,
@@ -41,12 +44,14 @@ rm -f "$path2profile/sessionstore.jsonlz4" >/dev/null
 rm -rf "$path2profile/sessionstore-backups" >/dev/null
 }
 
+#### LAUNCH ####
 launch="$firefox $url --allow-downgrade --profile $path2profile"
-echo "--> LAUNCHING FIREFOX WITH PROFILE @ $path2profile"
 [ "$url" != "about:newtab" ] && echo "--> VISITING: $url"
 $launch >/dev/null 2>&1 &
 
 ### get pid, write it to file, and display it
 # shellcheck disable=SC2009 # REASON: pgrep is not POSIX
-ps -aux| grep "$launch"| grep -v 'grep'| tr -s ' '| cut -d ' ' -f 2| head -n1 > .pid
-echo "--> PID: $(cat .pid)"
+ps -aux| grep ".*$firefox.*$path2profile.*"| grep -v '.*grep.*'| tr -s ' '| cut -d ' ' -f 2| head -n1 > .pid
+echo "--> FIREFOX PID: $(cat .pid)"
+echo "--> RUNNING: $($firefox --version)"
+echo "--> LAUNCHING WITH PROFILE @ $path2profile"
