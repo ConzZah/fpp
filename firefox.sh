@@ -3,7 +3,7 @@
 #===============================================
 # Project: fpp
 # Author:  ConzZah
-# Last Modification: 2/27/26 10:30 PM
+# Last Modification: 2/28/26 3:59 AM
 #===============================================
 
 # shellcheck disable=SC2009 # REASON: pgrep is not POSIX
@@ -30,6 +30,7 @@ OPTIONS:
 
 '; exit ;}
 
+deps="curl grep cat cut sed tr 7z"
 foxes="firefox-esr firefox librewolf"
 firefox=""; path2profile="$(pwd)/fpp"
 url="about:newtab" ### <-- default url
@@ -37,8 +38,15 @@ pathnotfound="--> ERROR: COULDN'T FIND PATH TO PROFILE"
 
 ### check if firefox is even installed & exit if it shouldn't be
 for fox in $foxes; do
-command -v "$fox" >/dev/null && firefox="$fox"; done
+command -v "$fox" >/dev/null && firefox="$fox" && break; done
 [ -z "$firefox" ] && echo "--> ERROR: FIREFOX APPEARS TO BE MISSING." && exit 1
+
+### check for common deps
+for dep in $deps; do 
+! command -v "$dep" >/dev/null && \
+printf '%s\n' "--> ERROR: DEPENDENCY: $dep MISSING" && \
+exit 1
+done
 
 #### PROCESS ARGS ####
 while [ "$#" -gt "0" ]; do
@@ -47,7 +55,7 @@ case $1 in
 m|M'-m'|'-M')
 ### find the path to the most recently used firefox profile
 [ ! -d "$HOME/.mozilla/firefox/" ] && echo "$pathnotfound" && exit 1
-path2profile="$(ls -t "$HOME"/.mozilla/firefox/*/compatibility.ini| head -n1| sed 's#compatibility.ini##g')"; shift 
+path2profile="$(ls -t "$HOME"/.mozilla/firefox/*/prefs.js| head -n1| sed 's#prefs.js##g')"; shift 
 ;;
 
 p|P|'-p'|'-P') 
@@ -64,26 +72,23 @@ echo '--> KILLING FIREFOX PROCESS..' && kill -15 "$(cat .pid)"
 [ -f ".pid" ] && rm -f .pid; exit
 ;;
 
-fr|'-fr')
-### if $1 is '-fr', create firstrun flag
-touch "$path2profile/.fr" && shift
-;;
+### check if "$1" is reachable and overwrite "$url" if so
+*.*) curl -sI "$1" >/dev/null && url="$1"; shift ;; 
 
-### check if "$1" is pingable and overwrite "$url" if so
-*.*) ping -c 1 -W 0.5 "$1" >/dev/null && url="$1"; shift ;; 
+### if $1 is '-fr', create firstrun flag
+fr|'-fr') touch "$path2profile/.fr" && shift ;;
 
 ### help, when needed
-h|'-h'|'help') help ;;
-*) help ;;
+h|'-h'|'help'|*) help ;;
 esac
 done
 
 ### if $path2profile couldn't be found, and is equal to the default,
 ### check if the 7z archive is present, if not, download & extract it, and create .fr
 [ ! -d "$path2profile" ] && [ "$path2profile" = "$(pwd)/fpp" ] && {
-[ ! -f "fpp.7z" ] && command -v curl >/dev/null && echo '--> DOWNLOADING fpp.7z' && \
+[ ! -f "fpp.7z" ] && echo '--> DOWNLOADING fpp.7z' && \
 curl -#LO 'https://github.com/ConzZah/fpp/raw/refs/heads/main/fpp.7z'
-7z x -y "fpp.7z" && touch "$path2profile/.fr"
+7z x -y "fpp.7z" && touch "$path2profile/.fr" || exit 1
 }
 
 ### check again, so we don't try to load something that's not there
