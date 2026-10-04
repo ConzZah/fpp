@@ -1,37 +1,37 @@
 #!/usr/bin/env sh
 
-#===============================================
-# Project: fpp/firefox.sh
-# Author:  ConzZah
-# Last Modification: 3/2/26 01:47 AM
-#===============================================
+### /// fpp/firefox.sh // ConzZah // 2026-10-04 17:33 /// 
 
 # shellcheck disable=SC2009 # REASON: pgrep is not POSIX
 # shellcheck disable=SC2012 # REASON: THERE ARE NO NON-ALPHANUMERIC FILENAMES WE'D NEED TO WORRY ABOUT 
 
 banner () { printf '%s\n' '
-===============================
- FPP v1.6 /// ConzZah /// 2026
-===============================
+    ===============================
+     FPP v1.7 /// ConzZah /// 2026
+    ===============================
 ';}
 
 help () { 
 banner
-printf '%s\n' 'OPTIONS:
+printf '%s\n' ' OPTIONS:
 
--m        USE MOST RECENT PROFILE
+ -img 1/2    ENABLE OR DISABLE IMAGES 
+             (2=DISABLE, 1=ENABLE)
+             (ENABLED BY DEFAULT)
 
--p        SPECIFY PATH TO PROFILE
+ -m          USE MOST RECENT PROFILE
 
--fr       CREATE FIRSTRUN FLAG
+ -p          SPECIFY PATH TO PROFILE
 
--kill     PUT THE FOX TO REST
+ -fr         CREATE FIRSTRUN FLAG
 
--help     SHOW THIS HELP
+ -kill       PUT THE FOX TO REST
 
--RESET    RESET FPP
+ -help       SHOW THIS HELP
 
+ -RESET      RESET FPP
 '; exit ;}
+
 
 init () {
 deps="curl grep cat cut sed tr 7z"
@@ -81,12 +81,13 @@ done
 while [ "$#" -gt "0" ]; do
 case $1 in
 
-m|M|'-m'|'-M')
+'m'|'M'|'-m'|'-M')
 ## find the path to the most recently used firefox profile
 [ ! -d "$firefox_path" ] && printf '%s\n' "$pathnotfound" && exit 1
 path2profile="$(ls -t "$firefox_path"/*/prefs.js| head -n1| sed 's#prefs.js##g')"; shift
 custom_path="1"
 ;;
+
 
 p|P|'-p'|'-P')
 ## if the user wants to specify a path to a profile, check if it exists
@@ -104,6 +105,7 @@ printf '%s\n' '--> ERROR: FLATPAKS ARE RESTRICTED TO THEIR RESPECTIVE DIRS' && e
 custom_path="1"
 ;;
 
+
 k|K|'-k'|'-K'|'-kill')
 ## kill firefox if the user asks for it
 [ ! -f ".pid" ] && printf '%s\n' '--> ERROR: NO .PID FILE FOUND' && exit 1
@@ -116,6 +118,7 @@ grep -q 'flatpak kill.*' .pid  && { eval "$(cat .pid)"; exit ;}
 ps -aux| grep -v grep| grep -qo "$(cat .pid)" && {
 kill -15 "$(cat .pid)"; [ -f ".pid" ] && rm -f .pid; exit ;}
 ;;
+
 
 *RESET) 
 ## RESET completely deletes fpp 
@@ -133,18 +136,75 @@ esac ;}
 [ -n "$custom_path" ] && printf '\n--> ERROR: CUSTOM PATH DETECTED, RESET PREVENTED.\n\n' && exit 1
 ;;
 
+
+'img'|'IMG'|'-img'|'-IMG') 
+## enable or disable images globally
+shift
+
+## check if 1 or 2 was provided in next argument and set $img_state
+## if it is neither 1 or 2, exit
+case $1 in
+'1') img_state="1"; shift;;
+'2') img_state="2"; shift;;
+*) printf '\n%s\n\n' "--> ERROR: '-img' REQUIRES EITHER 1 OR 2 AS ARGUMENT." && exit 1;;
+esac
+
+## check if $path2profile is already set / exists, else cancel
+[ ! -d "$path2profile" ] && printf '%s\n' "--> PATH TO PROFILE IS NOT SET YET, CANCELING."
+[ -d "$path2profile" ] && {
+## backup user.js if it should already exist
+[ -f "user.js" ] && [ ! -f  "${path2profile}/user.js.bak" ] && mv "${path2profile}/user.js" "${path2profile}/user.js.bak"
+ 
+## if user.js doesn't exist, create it
+[ ! -f "user.js" ] && touch "user.js"
+
+## write permissions.default.image setting to user.js if it isn't there already.
+! grep -q 'user_pref("permissions.default.image",.*' "${path2profile}/user.js" && \
+printf '%s\n' "user_pref(\"permissions.default.image\", ${img_state});" >> "${path2profile}/user.js"
+
+## if permissions.default.image is already there, check the current state
+grep -q 'user_pref("permissions.default.image",.*' "${path2profile}/user.js" && {
+permissions_default_image="$(grep 'user_pref("permissions.default.image",.*' "${path2profile}/user.js"| sed 's#"#\\"#g')"
+current_state_int="$(printf '%s\n' "$permissions_default_image"| rev| cut -c 3)"
+
+## if the $current_state_int is not the same as $img_state, change it
+[ "$current_state_int" != "$img_state" ] && \
+sed -i "s#${permissions_default_image}#user_pref(\"permissions.default.image\", ${img_state});#g" "${path2profile}/user.js"
+}
+}
+;;
+
+
+### URL DETECTION ###
 ## check if "$1" is reachable and overwrite "$url" if so
 ## one can open as many urls as they choose
 *.*) curl -sI "$1" >/dev/null && url="$url $1"; shift ;; 
 
+
 ## if $1 is '-fr', create firstrun flag
 fr|'-fr') touch "$path2profile/.fr"; shift ;;
+
 
 ## help, when needed
 h|H|'-h'|'-H'|'help'|*) help ;;
 esac
 done
 }
+
+
+dl_fpp () {
+## download & extract fpp.7z, and create .fr
+## NOTE: due to flatpaks running in isolated enviroments, 
+## we must download fpp to it's respective directory
+[ -n "$flatpak" ] && { cd "$firefox_path" || exit 1 ;}
+[ ! -f "fpp.7z" ] && printf '\n--> DOWNLOADING fpp.7z\n\n' && \
+curl -#LO 'https://github.com/ConzZah/fpp/raw/refs/heads/main/fpp.7z'
+[ -f "fpp.7z" ] && printf '\n--> EXTRACTING fpp.7z\n' && \
+7z x -y "fpp.7z" >/dev/null && touch "$path2profile/.fr" || exit 1
+[ -n "$flatpak" ] && { cd - || exit 1 ;}
+return 0
+}
+
 
 launch () {
 ## if $path2profile couldn't be found, 
@@ -166,7 +226,8 @@ rm -f "$path2profile/sessionstore.jsonlz4" >/dev/null
 rm -rf "$path2profile/sessionstore-backups" >/dev/null
 }
 
-### LAUNCH ###
+
+### LAUNCH FIREFOX ###
 [ -z "$url" ] && url="about:home" ## <-- if $url is empty, go home
 fox="$firefox $url --allow-downgrade --profile $path2profile"
 $fox >/dev/null 2>&1 &
@@ -178,19 +239,6 @@ printf '%s\n' "--> VISITING: $url"
 printf '%s\n' "--> RUNNING: $($firefox --version)"
 printf '%s\n\n' "--> PROFILE: $path2profile"
 exit
-}
-
-dl_fpp () {
-## download & extract fpp.7z, and create .fr
-## NOTE: due to flatpaks running in isolated enviroments, 
-## we must download fpp to it's respective directory
-[ -n "$flatpak" ] && { cd "$firefox_path" || exit 1 ;}
-[ ! -f "fpp.7z" ] && printf '\n--> DOWNLOADING fpp.7z\n\n' && \
-curl -#LO 'https://github.com/ConzZah/fpp/raw/refs/heads/main/fpp.7z'
-[ -f "fpp.7z" ] && printf '\n--> EXTRACTING fpp.7z\n' && \
-7z x -y "fpp.7z" >/dev/null && touch "$path2profile/.fr" || exit 1
-[ -n "$flatpak" ] && { cd - || exit 1 ;}
-return 0
 }
 
 init "$@"
