@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-### /// fpp/firefox.sh // ConzZah // 2026-10-04 18:25 /// 
+### /// fpp/firefox.sh // ConzZah // 2026-10-04 20:20 /// 
 
 # shellcheck disable=SC2009 # REASON: pgrep is not POSIX
 # shellcheck disable=SC2012 # REASON: THERE ARE NO NON-ALPHANUMERIC FILENAMES WE'D NEED TO WORRY ABOUT 
@@ -41,7 +41,7 @@ librewolf_path="$HOME/.config/librewolf/librewolf"
 firefox_path_flatpak="$HOME/.var/app/org.mozilla.firefox/config/mozilla/firefox"
 librewolf_path_flatpak="$HOME/.var/app/io.gitlab.librewolf-community/.librewolf"
 pathnotfound="--> ERROR: COULDN'T FIND PATH TO PROFILE"; custom_path=""
-firefox=""; flatpak=""; path2profile="$(pwd)/fpp"; url=""
+firefox=""; flatpak=""; path2profile="$(dirname $0)/fpp"; url=""
 img_on_launch=""
 
 ## check if firefox is even installed & exit if it shouldn't be
@@ -94,9 +94,6 @@ custom_path="1"
 p|P|'-p'|'-P')
 ## if the user wants to specify a path to a profile, check if it exists
 shift; path2profile="$1"
-
-## if $path2profile is also valid when putting $(pwd) in front, overwrite it to gain the full path
-[ -d "$path2profile" ] && [ -d "$(pwd)/$path2profile" ] && path2profile="$(pwd)/$path2profile"
 
 [ -d "$path2profile" ] && shift
 ## if $path2profile doesn't seem to exist, then we tried
