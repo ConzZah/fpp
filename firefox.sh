@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-### /// fpp/firefox.sh // ConzZah // 2026-10-04 20:20 /// 
+### /// fpp/firefox.sh // ConzZah // 2026-10-04 22:01 ///
 
 # shellcheck disable=SC2009 # REASON: pgrep is not POSIX
 # shellcheck disable=SC2012 # REASON: THERE ARE NO NON-ALPHANUMERIC FILENAMES WE'D NEED TO WORRY ABOUT 
@@ -8,11 +8,11 @@
 banner () { printf '%s\n' '
     ===============================
      FPP v1.7 /// ConzZah /// 2026
-    ===============================
-';}
-
-help () { 
+    ==============================='
+}
 banner
+
+help () {
 printf '%s\n' ' OPTIONS:
 
  -img 1/2    ENABLE OR DISABLE IMAGES 
@@ -41,8 +41,9 @@ librewolf_path="$HOME/.config/librewolf/librewolf"
 firefox_path_flatpak="$HOME/.var/app/org.mozilla.firefox/config/mozilla/firefox"
 librewolf_path_flatpak="$HOME/.var/app/io.gitlab.librewolf-community/.librewolf"
 pathnotfound="--> ERROR: COULDN'T FIND PATH TO PROFILE"; custom_path=""
-firefox=""; flatpak=""; path2profile="$(dirname $0)/fpp"; url=""
+firefox=""; flatpak=""; sp="$(dirname "$0")"; path2profile="$sp/fpp"
 img_on_launch=""
+url=""
 
 ## check if firefox is even installed & exit if it shouldn't be
 [ -z "$firefox" ] && {
@@ -107,15 +108,15 @@ custom_path="1"
 
 k|K|'-k'|'-K'|'-kill')
 ## kill firefox if the user asks for it
-[ ! -f ".pid" ] && printf '%s\n' '--> ERROR: NO .PID FILE FOUND' && exit 1
+[ ! -f "${path2profile}/.pid" ] && printf '%s\n' '--> ERROR: NO .PID FILE FOUND' && exit 1
 printf '%s\n' '--> PUTTING THE FOX TO REST'
 
 ## flatpak instance
-grep -q 'flatpak kill.*' .pid  && { eval "$(cat .pid)"; exit ;}
+grep -q 'flatpak kill.*' "${path2profile}/.pid"  && { eval "$(cat "${path2profile}/.pid")"; exit ;}
 
 ## normal instance
-ps -aux| grep -v grep| grep -qo "$(cat .pid)" && {
-kill -15 "$(cat .pid)"; [ -f ".pid" ] && rm -f .pid; exit ;}
+ps -aux| grep -v grep| grep -qo "$(cat "${path2profile}/.pid")" && {
+kill -15 "$(cat "${path2profile}/.pid")"; [ -f "${path2profile}/.pid" ] && rm -f "${path2profile}/.pid"; exit ;}
 ;;
 
 
@@ -139,16 +140,13 @@ esac ;}
 ## enable or disable images globally
 'img'|'IMG'|'-img'|'-IMG') shift; img_settings "$1"; shift ;;
 
-
 ### URL DETECTION ###
 ## check if "$1" is reachable and overwrite "$url" if so
 ## one can open as many urls as they choose
 *.*) curl -sI "$1" >/dev/null && url="$url $1"; shift ;; 
 
-
 ## if $1 is '-fr', create firstrun flag
 fr|'-fr') touch "$path2profile/.fr"; shift ;;
-
 
 ## help, when needed
 h|H|'-h'|'-H'|'help'|*) help ;;
@@ -174,11 +172,18 @@ esac
 [ ! -d "$path2profile" ] && img_on_launch="1"
 
 [ -d "$path2profile" ] && {
+## check if we already have a instance of fpp running,
+## if that's the case, tell the user that changing is impossible.
+ps -aux| grep -v 'grep'| grep -q "$(cat "${path2profile}/.pid")" && \
+printf '\n%s\n\n' "--> ERROR: '-img' SETTING CAN'T BE CHANGED WHILE FPP IS RUNNING" && exit 1
+
 ## backup user.js if it should already exist
-[ -f "user.js" ] && [ ! -f  "${path2profile}/user.js.bak" ] && mv "${path2profile}/user.js" "${path2profile}/user.js.bak"
+[ -f "user.js" ] && [ ! -f  "${path2profile}/user.js.bak" ] && \
+mv "${path2profile}/user.js" "${path2profile}/user.js.bak"
  
 ## if user.js doesn't exist, create it
-[ ! -f "user.js" ] && touch "user.js"
+[ ! -f "${path2profile}/user.js" ] && \
+touch "${path2profile}/user.js"
 
 ## write permissions.default.image setting to user.js if it isn't there already.
 ! grep -q 'user_pref("permissions.default.image",.*' "${path2profile}/user.js" && \
@@ -202,11 +207,18 @@ dl_fpp () {
 ## NOTE: due to flatpaks running in isolated enviroments, 
 ## we must download fpp to it's respective directory
 [ -n "$flatpak" ] && { cd "$firefox_path" || exit 1 ;}
+
+## otherwise, fpp will be downloaded where the script is located
+[ -z "$flatpak" ] && { cd "$sp" || exit 1 ;}
+
+## if fpp.7z doesn't exist yet, download it
 [ ! -f "fpp.7z" ] && printf '\n--> DOWNLOADING fpp.7z\n\n' && \
-curl -#LO 'https://github.com/ConzZah/fpp/raw/refs/heads/main/fpp.7z'
+{ curl -#Lo "fpp.7z" 'https://github.com/ConzZah/fpp/raw/refs/heads/main/fpp.7z' || exit 1 ;}
+
+## if the download was successful, extract fpp.7z
 [ -f "fpp.7z" ] && printf '\n--> EXTRACTING fpp.7z\n' && \
 7z x -y "fpp.7z" >/dev/null && touch "$path2profile/.fr" || exit 1
-[ -n "$flatpak" ] && { cd - || exit 1 ;}
+cd - || exit 1
 return 0
 }
 
@@ -242,8 +254,12 @@ fox="$firefox $url --allow-downgrade --profile $path2profile"
 $fox >/dev/null 2>&1 &
 
 ## get pid, write it to file, and display it
-[ -z "$flatpak" ] && { ps -aux| grep ".*$firefox.*$path2profile.*"| grep -v '.*grep.*'| tr -s ' '| cut -d ' ' -f 2| head -n1 > .pid; printf '\n%s\n' "--> PID: $(cat .pid)" ;}
-[ -n "$flatpak" ] && printf '%s\n' "$firefox"| sed 's#run#kill#' > .pid
+[ -z "$flatpak" ] && { 
+ps -aux| grep ".*$firefox.*$path2profile.*"| grep -v '.*grep.*'| tr -s ' '| cut -d ' ' -f 2| head -n1 \
+> "${path2profile}/.pid"; printf '\n%s\n' "--> PID: $(cat "${path2profile}/.pid")"
+}
+
+[ -n "$flatpak" ] && printf '%s\n' "$firefox"| sed 's#run#kill#' > "${path2profile}/.pid"
 printf '%s\n' "--> VISITING: $url"
 printf '%s\n' "--> RUNNING: $($firefox --version)"
 printf '%s\n\n' "--> PROFILE: $path2profile"
