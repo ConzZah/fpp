@@ -7,6 +7,9 @@ it may also be used as a launcher for any other firefox profile,
 it currently supports: firefox, firefox-esr & librewolf,
 and it is also compatible with their flatpak versions.
 
+<img width="348" height="411" alt="14710" src="https://github.com/user-attachments/assets/d32259c7-e678-41bc-aa0a-f1259ac11f19" />
+
+
 ### USAGE: 
 
 **sh firefox.sh [OPTIONS]**
@@ -15,11 +18,12 @@ and it is also compatible with their flatpak versions.
 
 ### OPTIONS
 
-- **-m** to start the most recently used profile
-- **-p** to specify a path to a profile
-- **-k** to kill the firefox process
+- **-img** disable or enable images globally
+- **-m** start the most recently used profile
+- **-p** specify a path to a profile
+- **-k** kill the firefox process
 - **any url** (one or multiple)
-- **RESET** to get a fresh fpp
+- **RESET** get a fresh fpp
 
 ### TWEAKS
 
@@ -33,7 +37,6 @@ and it is also compatible with their flatpak versions.
 - UBlock Origin
 - Port Authority 
 - Disable WebRTC
-- Return YouTube Dislike
 
 **Cheers, ConzZah**
 
