@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-### /// fpp/firefox.sh // ConzZah // 2026-10-04 17:33 /// 
+### /// fpp/firefox.sh // ConzZah // 2026-10-04 18:25 /// 
 
 # shellcheck disable=SC2009 # REASON: pgrep is not POSIX
 # shellcheck disable=SC2012 # REASON: THERE ARE NO NON-ALPHANUMERIC FILENAMES WE'D NEED TO WORRY ABOUT 
@@ -42,11 +42,13 @@ firefox_path_flatpak="$HOME/.var/app/org.mozilla.firefox/config/mozilla/firefox"
 librewolf_path_flatpak="$HOME/.var/app/io.gitlab.librewolf-community/.librewolf"
 pathnotfound="--> ERROR: COULDN'T FIND PATH TO PROFILE"; custom_path=""
 firefox=""; flatpak=""; path2profile="$(pwd)/fpp"; url=""
+img_on_launch=""
 
 ## check if firefox is even installed & exit if it shouldn't be
 [ -z "$firefox" ] && {
 for fox in $foxes; do
-command -v "$fox" >/dev/null && firefox="$fox" && break; done
+command -v "$fox" >/dev/null && firefox="$fox" && break
+done
 
 ## set $firefox_path
 [ "$firefox" = "librewolf" ] && firefox_path="$librewolf_path"
@@ -137,20 +139,43 @@ esac ;}
 ;;
 
 
-'img'|'IMG'|'-img'|'-IMG') 
 ## enable or disable images globally
-shift
+'img'|'IMG'|'-img'|'-IMG') shift; img_settings "$1"; shift ;;
+
+
+### URL DETECTION ###
+## check if "$1" is reachable and overwrite "$url" if so
+## one can open as many urls as they choose
+*.*) curl -sI "$1" >/dev/null && url="$url $1"; shift ;; 
+
+
+## if $1 is '-fr', create firstrun flag
+fr|'-fr') touch "$path2profile/.fr"; shift ;;
+
+
+## help, when needed
+h|H|'-h'|'-H'|'help'|*) help ;;
+esac
+done
+}
+
+
+img_settings () {
+## if $img_on_launch is unset, then img_settings runs from init
+[ -z "$img_on_launch" ] && {
 
 ## check if 1 or 2 was provided in next argument and set $img_state
 ## if it is neither 1 or 2, exit
 case $1 in
-'1') img_state="1"; shift;;
-'2') img_state="2"; shift;;
+'1') img_state="1";;
+'2') img_state="2";;
 *) printf '\n%s\n\n' "--> ERROR: '-img' REQUIRES EITHER 1 OR 2 AS ARGUMENT." && exit 1;;
 esac
+}
 
-## check if $path2profile is already set / exists, else cancel
-[ ! -d "$path2profile" ] && printf '%s\n' "--> PATH TO PROFILE IS NOT SET YET, CANCELING."
+## check if $path2profile is already set / exists, else set flag $img_on_launch
+[ ! -d "$path2profile" ] && img_on_launch="1"
+
 [ -d "$path2profile" ] && {
 ## backup user.js if it should already exist
 [ -f "user.js" ] && [ ! -f  "${path2profile}/user.js.bak" ] && mv "${path2profile}/user.js" "${path2profile}/user.js.bak"
@@ -172,23 +197,6 @@ current_state_int="$(printf '%s\n' "$permissions_default_image"| rev| cut -c 3)"
 sed -i "s#${permissions_default_image}#user_pref(\"permissions.default.image\", ${img_state});#g" "${path2profile}/user.js"
 }
 }
-;;
-
-
-### URL DETECTION ###
-## check if "$1" is reachable and overwrite "$url" if so
-## one can open as many urls as they choose
-*.*) curl -sI "$1" >/dev/null && url="$url $1"; shift ;; 
-
-
-## if $1 is '-fr', create firstrun flag
-fr|'-fr') touch "$path2profile/.fr"; shift ;;
-
-
-## help, when needed
-h|H|'-h'|'-H'|'help'|*) help ;;
-esac
-done
 }
 
 
@@ -225,6 +233,10 @@ rm -f "$path2profile/.fr" ".fr" >/dev/null
 rm -f "$path2profile/sessionstore.jsonlz4" >/dev/null
 rm -rf "$path2profile/sessionstore-backups" >/dev/null
 }
+
+## if $img_on_launch is set, apply img_settings
+## this is for setting them correctly, even when $path2profile was empty when init ran.
+[ -n "$img_on_launch" ] && img_settings
 
 
 ### LAUNCH FIREFOX ###
