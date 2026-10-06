@@ -175,7 +175,7 @@ esac
 ## check if we already have a instance of fpp running,
 ## if that's the case, tell the user that changing is impossible.
 ps -aux| grep -v 'grep'| grep -q "$(cat "${path2profile}/.pid")" && \
-printf '\n%s\n\n' "--> ERROR: '-img' SETTING CAN'T BE CHANGED WHILE FPP IS RUNNING" && exit 1
+printf '\n%s\n\n' "--> ERROR: '-img' SETTING CAN'T BE CHANGED WHILE FPP IS RUNNING" && return
 
 ## backup user.js if it should already exist
 [ -f "user.js" ] && [ ! -f  "${path2profile}/user.js.bak" ] && \
