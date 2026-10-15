@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
 
-### /// fpp/firefox.sh // ConzZah // 2026-10-04 22:01 ///
+### /// fpp/firefox.sh // ConzZah // 2026-10-15 00:07 ///
 
 # shellcheck disable=SC2009 # REASON: pgrep is not POSIX
-# shellcheck disable=SC2012 # REASON: THERE ARE NO NON-ALPHANUMERIC FILENAMES WE'D NEED TO WORRY ABOUT 
+# shellcheck disable=SC2012 # REASON: THERE ARE NO NON-ALPHANUMERIC FILENAMES WE'D NEED TO WORRY ABOUT
 
 banner () { printf '%s\n' '
     ===============================
@@ -15,7 +15,7 @@ banner
 help () {
 printf '%s\n' ' OPTIONS:
 
- -img 1/2    ENABLE OR DISABLE IMAGES 
+ -img 1/2    ENABLE OR DISABLE IMAGES
              (2=DISABLE, 1=ENABLE)
              (ENABLED BY DEFAULT)
 
@@ -99,7 +99,7 @@ shift; path2profile="$1"
 [ -d "$path2profile" ] && shift
 ## if $path2profile doesn't seem to exist, then we tried
 [ ! -d "$path2profile" ] && printf '%s\n' "$pathnotfound" && exit 1
-## refuse for flatpak versions, if they don't contain $firefox_path 
+## refuse for flatpak versions, if they don't contain $firefox_path
 [ -n "$flatpak" ] && printf '%s' "$path2profile"| grep -vq "$firefox_path" && \
 printf '%s\n' '--> ERROR: FLATPAKS ARE RESTRICTED TO THEIR RESPECTIVE DIRS' && exit 1
 custom_path="1"
@@ -120,8 +120,8 @@ kill -15 "$(cat "${path2profile}/.pid")"; [ -f "${path2profile}/.pid" ] && rm -f
 ;;
 
 
-*RESET) 
-## RESET completely deletes fpp 
+*RESET)
+## RESET completely deletes fpp
 ## and re-downloads it.
 ## you will be prompted.
 [ -z "$custom_path" ] && {
@@ -174,13 +174,15 @@ esac
 [ -d "$path2profile" ] && {
 ## check if we already have a instance of fpp running,
 ## if that's the case, tell the user that changing is impossible.
+[ -f "${path2profile}/.pid" ] && {
 ps -aux| grep -v 'grep'| grep -q "$(cat "${path2profile}/.pid")" && \
 printf '\n%s\n\n' "--> ERROR: '-img' SETTING CAN'T BE CHANGED WHILE FPP IS RUNNING" && return
+}
 
 ## backup user.js if it should already exist
 [ -f "user.js" ] && [ ! -f  "${path2profile}/user.js.bak" ] && \
 mv "${path2profile}/user.js" "${path2profile}/user.js.bak"
- 
+
 ## if user.js doesn't exist, create it
 [ ! -f "${path2profile}/user.js" ] && \
 touch "${path2profile}/user.js"
@@ -204,7 +206,7 @@ sed -i "s#${permissions_default_image}#user_pref(\"permissions.default.image\", 
 
 dl_fpp () {
 ## download & extract fpp.7z, and create .fr
-## NOTE: due to flatpaks running in isolated enviroments, 
+## NOTE: due to flatpaks running in isolated enviroments,
 ## we must download fpp to it's respective directory
 [ -n "$flatpak" ] && { cd "$firefox_path" || exit 1 ;}
 
@@ -218,13 +220,13 @@ dl_fpp () {
 ## if the download was successful, extract fpp.7z
 [ -f "fpp.7z" ] && printf '\n--> EXTRACTING fpp.7z\n' && \
 7z x -y "fpp.7z" >/dev/null && touch "$path2profile/.fr" || exit 1
-cd - || exit 1
+cd - >/dev/null || exit 1
 return 0
 }
 
 
 launch () {
-## if $path2profile couldn't be found, 
+## if $path2profile couldn't be found,
 ## and if we don't have a $custom_path set, dl_fpp
 [ ! -f "$path2profile/prefs.js" ] && \
 [ -z "$custom_path" ] && dl_fpp
@@ -254,9 +256,10 @@ fox="$firefox $url --allow-downgrade --profile $path2profile"
 $fox >/dev/null 2>&1 &
 
 ## get pid, write it to file, and display it
-[ -z "$flatpak" ] && { 
-ps -aux| grep ".*$firefox.*$path2profile.*"| grep -v '.*grep.*'| tr -s ' '| cut -d ' ' -f 2| head -n1 \
-> "${path2profile}/.pid"; printf '\n%s\n' "--> PID: $(cat "${path2profile}/.pid")"
+[ -z "$flatpak" ] && {
+ps -aux| grep ".*$firefox.*$path2profile.*"| grep -v '.*grep.*'| tr -s ' '| cut -d ' ' -f 2| head -n1 > "${path2profile}/.pid"
+[ -f "${path2profile}/.pid" ] && \
+printf '\n%s\n' "--> PID: $(cat "${path2profile}/.pid")"
 }
 
 [ -n "$flatpak" ] && printf '%s\n' "$firefox"| sed 's#run#kill#' > "${path2profile}/.pid"
